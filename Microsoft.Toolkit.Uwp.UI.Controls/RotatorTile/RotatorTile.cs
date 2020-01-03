@@ -1,18 +1,11 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using System;
 using System.Collections;
 using System.Collections.Specialized;
+using Microsoft.Toolkit.Uwp.Helpers;
 using Windows.Foundation;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
@@ -105,9 +98,19 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             _nextElement = GetTemplateChild(NextPartName) as FrameworkElement;
             _translate = GetTemplateChild(TranslatePartName) as TranslateTransform;
             _stackPanel = GetTemplateChild(StackPartName) as StackPanel;
+
+            // set the correct defaults for translate transform
+            UpdateTranslateXY();
+
             if (_stackPanel != null)
             {
-                _stackPanel.Orientation = Direction == RotateDirection.Up ? Orientation.Vertical : Orientation.Horizontal;
+                if (Direction == RotateDirection.Down || Direction == RotateDirection.Right)
+                {
+                    // reverse the order of elements in the _stackpanel
+                    _stackPanel.Children.Move(1, 0);
+                }
+
+                _stackPanel.Orientation = Direction == RotateDirection.Up || Direction == RotateDirection.Down ? Orientation.Vertical : Orientation.Horizontal;
             }
 
             if (ItemsSource != null)
@@ -129,7 +132,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             // Set content area to twice the size in the slide direction
             if (_scroller != null)
             {
-                if (Direction == RotateDirection.Up)
+                if (Direction == RotateDirection.Up || Direction == RotateDirection.Down)
                 {
                     _scroller.Height = e.NewSize.Height * 2;
                 }
@@ -212,6 +215,16 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                 {
                     anim.To = -ActualHeight;
                 }
+                else if (Direction == RotateDirection.Down)
+                {
+                    anim.From = -1 * ActualHeight;
+                    anim.To = 0;
+                }
+                else if (Direction == RotateDirection.Right)
+                {
+                    anim.From = -1 * ActualWidth;
+                    anim.To = 0;
+                }
                 else if (Direction == RotateDirection.Left)
                 {
                     anim.To = -ActualWidth;
@@ -220,7 +233,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                 anim.FillBehavior = FillBehavior.HoldEnd;
                 anim.EasingFunction = new CubicEase() { EasingMode = EasingMode.EaseOut };
                 Storyboard.SetTarget(anim, _translate);
-                if (Direction == RotateDirection.Up)
+                if (Direction == RotateDirection.Up || Direction == RotateDirection.Down)
                 {
                     Storyboard.SetTargetProperty(anim, "Y");
                 }
@@ -232,18 +245,22 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                 sb.Children.Add(anim);
             }
 
-            sb.Completed += (a, b) =>
+            sb.Completed += async (a, b) =>
             {
+                if (_currentElement != null && _nextElement != null)
+                {
+                    _currentElement.DataContext = _nextElement.DataContext;
+                }
+
+                // make sure DataContext on _currentElement has had a chance to update the binding
+                // avoids flicker on rotation
+                await System.Threading.Tasks.Task.Delay(50);
+
                 // Reset back and swap images, getting the next image ready
                 sb.Stop();
                 if (_translate != null)
                 {
-                    _translate.X = _translate.Y = 0;
-                }
-
-                if (_currentElement != null)
-                {
-                    _currentElement.DataContext = _nextElement.DataContext;
+                    UpdateTranslateXY();
                 }
 
                 if (_nextElement != null)
@@ -252,6 +269,27 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                 }
             };
             sb.Begin();
+        }
+
+        private void UpdateTranslateXY()
+        {
+            if (_translate == null)
+            {
+                return;
+            }
+
+            if (Direction == RotateDirection.Left || Direction == RotateDirection.Up)
+            {
+                _translate.X = _translate.Y = 0;
+            }
+            else if (Direction == RotateDirection.Right)
+            {
+                _translate.X = -1 * ActualWidth;
+            }
+            else if (Direction == RotateDirection.Down)
+            {
+                _translate.Y = -1 * ActualHeight;
+            }
         }
 
         private object GetCurrent()
@@ -437,7 +475,10 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                     else if (e.NewStartingIndex == _currentIndex + 1)
                     {
                         // Upcoming item was changed, so update the datacontext
-                        _nextElement.DataContext = GetNext();
+                        if (_nextElement != null)
+                        {
+                            _nextElement.DataContext = GetNext();
+                        }
                     }
                 }
             }
@@ -459,7 +500,10 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                     else if (_currentIndex + 1 == e.NewStartingIndex)
                     {
                         // Upcoming item was changed, so update the datacontext
-                        _nextElement.DataContext = GetNext();
+                        if (_nextElement != null)
+                        {
+                            _nextElement.DataContext = GetNext();
+                        }
                     }
                 }
             }
@@ -468,7 +512,7 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
                 int endIndex = e.OldStartingIndex + e.OldItems.Count;
                 if (_currentIndex >= e.OldStartingIndex && _currentIndex < endIndex + 1)
                 {
-                    // The current or next item was moved. Get its new location
+                    // Current item was removed. Replace with the next one
                     UpdateNextItem();
                 }
             }
@@ -519,7 +563,11 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
             if (index > -1)
             {
                 ctrl._currentIndex = index;
-                ctrl._nextElement.DataContext = e.NewValue;
+                if (ctrl._nextElement != null)
+                {
+                    ctrl._nextElement.DataContext = e.NewValue;
+                }
+
                 ctrl.RotateToNextItem();
                 ctrl._timer.Stop();
                 ctrl._timer.Start();
@@ -563,10 +611,17 @@ namespace Microsoft.Toolkit.Uwp.UI.Controls
 
             /// <summary>Left</summary>
             Left,
+
+            /// <summary>Down</summary>
+            Down,
+
+            /// <summary>Right</summary>
+            Right,
         }
 
         /// <summary>
         /// Gets or sets the extra randomized duration to be added to the <see cref="RotationDelay"/> property.
+        /// A value between zero and this value *in seconds* will be added to the <see cref="RotationDelay"/>.
         /// </summary>
         public TimeSpan ExtraRandomDuration
         {

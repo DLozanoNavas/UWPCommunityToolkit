@@ -1,14 +1,6 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using System;
 using System.Collections.Generic;
@@ -32,7 +24,7 @@ namespace Microsoft.Toolkit.Uwp.DeveloperTools
     [TemplatePart(Name = "ControlType", Type = typeof(TextBlock))]
     [TemplatePart(Name = "ControlAutomationName", Type = typeof(TextBlock))]
     [TemplatePart(Name = "ControlFirstParentWithName", Type = typeof(TextBlock))]
-    public class FocusTracker: Control
+    public class FocusTracker : Control
     {
         /// <summary>
         /// Defines the <see cref="IsActive"/> dependency property.
@@ -43,7 +35,7 @@ namespace Microsoft.Toolkit.Uwp.DeveloperTools
         {
             var focusTracker = d as FocusTracker;
 
-            if (e.NewValue != null && (bool) e.NewValue)
+            if (e.NewValue != null && (bool)e.NewValue)
             {
                 focusTracker?.Start();
             }
@@ -60,15 +52,12 @@ namespace Microsoft.Toolkit.Uwp.DeveloperTools
         private TextBlock controlFirstParentWithName;
 
         /// <summary>
-        /// Gets or sets a boolean indicating whether the tracker is running or not.
+        /// Gets or sets a value indicating whether the tracker is running or not.
         /// </summary>
         public bool IsActive
         {
-            get { return (bool) GetValue(IsActiveProperty); }
-            set
-            {
-                SetValue(IsActiveProperty, value);
-            }
+            get { return (bool)GetValue(IsActiveProperty); }
+            set { SetValue(IsActiveProperty, value); }
         }
 
         /// <summary>
@@ -86,6 +75,7 @@ namespace Microsoft.Toolkit.Uwp.DeveloperTools
                 updateTimer = new DispatcherTimer();
                 updateTimer.Tick += UpdateTimer_Tick;
             }
+
             updateTimer.Start();
         }
 
@@ -124,13 +114,26 @@ namespace Microsoft.Toolkit.Uwp.DeveloperTools
                 return;
             }
 
-            controlName.Text = focusedControl.Name;
-            controlType.Text = focusedControl.GetType().Name;
-            controlAutomationName.Text = AutomationProperties.GetName(focusedControl);
+            if (controlName != null)
+            {
+                controlName.Text = focusedControl.Name;
+            }
 
-            var parentWithName = FindVisualAscendantWithName(focusedControl);
+            if (controlType != null)
+            {
+                controlType.Text = focusedControl.GetType().Name;
+            }
 
-            controlFirstParentWithName.Text = parentWithName?.Name ?? string.Empty;
+            if (controlAutomationName != null)
+            {
+                controlAutomationName.Text = AutomationProperties.GetName(focusedControl);
+            }
+
+            if (controlFirstParentWithName != null)
+            {
+                var parentWithName = FindVisualAscendantWithName(focusedControl);
+                controlFirstParentWithName.Text = parentWithName?.Name ?? string.Empty;
+            }
         }
 
         private FrameworkElement FindVisualAscendantWithName(FrameworkElement element)

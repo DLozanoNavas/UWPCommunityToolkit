@@ -1,16 +1,11 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
+using System;
+using Windows.UI;
 using Windows.UI.Xaml;
+using Windows.UI.Xaml.Media;
 
 namespace Microsoft.Toolkit.Uwp.UI.Animations.Behaviors
 {
@@ -19,12 +14,19 @@ namespace Microsoft.Toolkit.Uwp.UI.Animations.Behaviors
     /// </summary>
     /// <seealso cref="Microsoft.Toolkit.Uwp.UI.Animations.Behaviors.CompositionBehaviorBase" />
     /// <seealso cref="AnimationExtensions.IsLightingSupported"/>
+    [Obsolete("The Light effect will be removed in a future major release. Please use XamlLight instead")]
+
     public class Light : CompositionBehaviorBase<FrameworkElement>
     {
         /// <summary>
         /// The Blur value of the associated object
         /// </summary>
         public static readonly DependencyProperty DistanceProperty = DependencyProperty.Register(nameof(Distance), typeof(double), typeof(Light), new PropertyMetadata(0d, PropertyChangedCallback));
+
+        /// <summary>
+        /// The Color of the spotlight no the associated object.
+        /// </summary>
+        public static readonly DependencyProperty ColorProperty = DependencyProperty.Register("Color", typeof(Brush), typeof(Light), new PropertyMetadata(new SolidColorBrush(Colors.White)));
 
         /// <summary>
         /// Gets or sets the Blur.
@@ -39,13 +41,28 @@ namespace Microsoft.Toolkit.Uwp.UI.Animations.Behaviors
         }
 
         /// <summary>
+        /// Gets or sets the color of the spotlight.
+        /// </summary>
+        public Brush Color
+        {
+            get { return (Brush)GetValue(ColorProperty); }
+            set { SetValue(ColorProperty, value); }
+        }
+
+        /// <summary>
         /// Starts the animation.
         /// </summary>
         public override void StartAnimation()
         {
             if (AnimationExtensions.IsLightingSupported)
             {
-               AssociatedObject?.Light(duration: Duration, delay: Delay, distance: (float)Distance)?.Start();
+                AssociatedObject?.Light(
+                    duration: Duration,
+                    delay: Delay,
+                    easingType: EasingType,
+                    easingMode: EasingMode,
+                    distance: (float)Distance,
+                    color: ((SolidColorBrush)Color).Color)?.Start();
             }
         }
     }

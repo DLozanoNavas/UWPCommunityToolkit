@@ -1,55 +1,49 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Windows.Storage;
 
-namespace Microsoft.Toolkit.Uwp
+namespace Microsoft.Toolkit.Uwp.Helpers
 {
     /// <summary>
-    /// Shared implementation of ObjectStorageHelper
+    /// Shared implementation of ObjectStorageHelper.
     /// </summary>
     public abstract class BaseObjectStorageHelper : IObjectStorageHelper
     {
         private JsonSerializer serializer = new JsonSerializer();
 
         /// <summary>
-        /// Gets or sets settings container
+        /// Gets or sets the settings container.
         /// </summary>
         protected ApplicationDataContainer Settings { get; set; }
 
         /// <summary>
-        /// Gets or sets storage folder
+        /// Gets or sets the storage folder.
         /// </summary>
         protected StorageFolder Folder { get; set; }
 
         /// <summary>
-        /// Detect if a setting already exists
+        /// Determines whether a setting already exists.
         /// </summary>
         /// <param name="key">Key of the setting (that contains object)</param>
-        /// <returns>True if a value exists</returns>
+        /// <returns><c>true</c> if the setting exists; otherwise, <c>false</c>.</returns>
         public bool KeyExists(string key)
         {
             return Settings.Values.ContainsKey(key);
         }
 
         /// <summary>
-        /// Detect if a setting already exists in composite.
+        /// Determines whether a setting already exists in composite.
         /// </summary>
         /// <param name="compositeKey">Key of the composite (that contains settings)</param>
         /// <param name="key">Key of the setting (that contains object)</param>
-        /// <returns>True if a value exists</returns>
+        /// <returns><c>true</c> if the setting exists; otherwise, <c>false</c>.</returns>
         public bool KeyExists(string compositeKey, string key)
         {
             if (KeyExists(compositeKey))
@@ -65,7 +59,7 @@ namespace Microsoft.Toolkit.Uwp
         }
 
         /// <summary>
-        /// Retrieve single item by its key.
+        /// Retrieves a single item by its key.
         /// </summary>
         /// <typeparam name="T">Type of object retrieved</typeparam>
         /// <param name="key">Key of the object</param>
@@ -73,17 +67,31 @@ namespace Microsoft.Toolkit.Uwp
         /// <returns>The T object</returns>
         public T Read<T>(string key, T @default = default(T))
         {
-            string value = (string)Settings.Values[key];
-            if (value != null)
+            object value = null;
+
+            if (!Settings.Values.TryGetValue(key, out value))
             {
-                return JsonConvert.DeserializeObject<T>(value);
+                return @default;
             }
 
-            return @default;
+            if (value == null)
+            {
+                return @default;
+            }
+
+            var type = typeof(T);
+            var typeInfo = type.GetTypeInfo();
+
+            if (typeInfo.IsPrimitive || type == typeof(string))
+            {
+                return (T)Convert.ChangeType(value, type);
+            }
+
+            return JsonConvert.DeserializeObject<T>((string)value);
         }
 
         /// <summary>
-        /// Retrieve single item by its key in composite.
+        /// Retrieves a single item by its key in composite.
         /// </summary>
         /// <typeparam name="T">Type of object retrieved</typeparam>
         /// <param name="compositeKey">Key of the composite (that contains settings)</param>
@@ -106,7 +114,7 @@ namespace Microsoft.Toolkit.Uwp
         }
 
         /// <summary>
-        /// Save single item by its key.
+        /// Saves a single item by its key.
         /// This method should be considered for objects that do not exceed 8k bytes during the lifetime of the application
         /// (refers to <see cref="SaveFileAsync{T}(string, T)"/> for complex/large objects).
         /// </summary>
@@ -115,11 +123,21 @@ namespace Microsoft.Toolkit.Uwp
         /// <param name="value">Object to save</param>
         public void Save<T>(string key, T value)
         {
-            Settings.Values[key] = JsonConvert.SerializeObject(value);
+            var type = typeof(T);
+            var typeInfo = type.GetTypeInfo();
+
+            if (typeInfo.IsPrimitive || type == typeof(string))
+            {
+                Settings.Values[key] = value;
+            }
+            else
+            {
+                Settings.Values[key] = JsonConvert.SerializeObject(value);
+            }
         }
 
         /// <summary>
-        /// Save a group of items by its key in a composite.
+        /// Saves a group of items by its key in a composite.
         /// This method should be considered for objects that do not exceed 8k bytes during the lifetime of the application
         /// (refers to <see cref="SaveFileAsync{T}(string, T)"/> for complex/large objects) and for groups of settings which
         /// need to be treated in an atomic way.
@@ -158,17 +176,17 @@ namespace Microsoft.Toolkit.Uwp
         }
 
         /// <summary>
-        /// Detect if a file already exists
+        /// Determines whether a file already exists.
         /// </summary>
         /// <param name="filePath">Key of the file (that contains object)</param>
-        /// <returns>True if a value exists</returns>
+        /// <returns><c>true</c> if the file exists; otherwise, <c>false</c>.</returns>
         public Task<bool> FileExistsAsync(string filePath)
         {
             return Folder.FileExistsAsync(filePath);
         }
 
         /// <summary>
-        /// Retrieve object from file.
+        /// Retrieves an object from a file.
         /// </summary>
         /// <typeparam name="T">Type of object retrieved</typeparam>
         /// <param name="filePath">Path to the file that contains the object</param>
@@ -181,13 +199,13 @@ namespace Microsoft.Toolkit.Uwp
         }
 
         /// <summary>
-        /// Save object inside file.
+        /// Saves an object inside a file.
         /// There is no limitation to use this method (refers to <see cref="Save{T}(string, T)"/> method for simple objects).
         /// </summary>
         /// <typeparam name="T">Type of object saved</typeparam>
         /// <param name="filePath">Path to the file that will contain the object</param>
         /// <param name="value">Object to save</param>
-        /// <returns>When this method completes, it returns the <see cref="StorageFile"/> where the object was saved</returns>
+        /// <returns>The <see cref="StorageFile"/> where the object was saved</returns>
         public Task<StorageFile> SaveFileAsync<T>(string filePath, T value)
         {
             return StorageFileHelper.WriteTextToFileAsync(Folder, JsonConvert.SerializeObject(value), filePath, CreationCollisionOption.ReplaceExisting);

@@ -1,14 +1,6 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using System;
 using System.Collections.ObjectModel;
@@ -16,53 +8,95 @@ using System.Threading.Tasks;
 using Microsoft.Toolkit.Uwp.SampleApp.Data;
 using Microsoft.Toolkit.Uwp.UI;
 using Microsoft.Toolkit.Uwp.UI.Controls;
-using Windows.UI;
+using Microsoft.Toolkit.Uwp.UI.Extensions;
 using Windows.UI.Xaml;
-using Windows.UI.Xaml.Media;
+using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Media.Imaging;
-using Windows.UI.Xaml.Navigation;
 
 namespace Microsoft.Toolkit.Uwp.SampleApp.SamplePages
 {
-    public sealed partial class ImageExPage
+    public sealed partial class ImageExPage : IXamlRenderListener
     {
         private ObservableCollection<PhotoDataItem> photos;
         private int imageIndex;
+        private StackPanel container;
+        private ResourceDictionary resources;
+        private Border lazyLoadingControlHost;
 
         public ImageExPage()
         {
             InitializeComponent();
+            Load();
         }
 
-        protected override async void OnNavigatedTo(NavigationEventArgs e)
+        public void OnXamlRendered(FrameworkElement control)
         {
-            base.OnNavigatedTo(e);
+            // Need to use logical tree here as scrollviewer hasn't initialized yet even with dispatch.
+            container = control.FindChildByName("Container") as StackPanel;
+            resources = control.Resources;
+            lazyLoadingControlHost = control.FindChildByName("LazyLoadingControlHost") as Border;
+        }
 
-            Shell.Current.RegisterNewCommand("Image with placeholder", (sender, args) =>
+        private async void Load()
+        {
+            SampleController.Current.RegisterNewCommand("Image with placeholder", (sender, args) =>
             {
                 AddImage(false, true);
             });
 
-            Shell.Current.RegisterNewCommand("Image with placeholder (invalid link or offline)", (sender, args) =>
+            SampleController.Current.RegisterNewCommand("Image with placeholder (invalid link or offline)", (sender, args) =>
             {
                 AddImage(true, true);
             });
 
-            Shell.Current.RegisterNewCommand("Image without placeholder", (sender, args) =>
+            SampleController.Current.RegisterNewCommand("Image without placeholder", (sender, args) =>
             {
                 AddImage(false, false);
             });
 
-            Shell.Current.RegisterNewCommand("Clear image cache", async (sender, args) =>
+            SampleController.Current.RegisterNewCommand("Round Image with placeholder", (sender, args) =>
             {
-                Container.Children.Clear();
+                AddImage(false, true, true);
+            });
+
+            SampleController.Current.RegisterNewCommand("Round Image with placeholder (invalid link or offline)", (sender, args) =>
+            {
+                AddImage(true, true, true);
+            });
+
+            SampleController.Current.RegisterNewCommand("Round Image without placeholder", (sender, args) =>
+            {
+                AddImage(false, false, true);
+            });
+
+            if (ImageExBase.IsLazyLoadingSupported)
+            {
+                SampleController.Current.RegisterNewCommand("Lazy loading sample (17763 or higher supported)", (sender, args) =>
+                {
+                    var imageExLazyLoadingControl = new ImageExLazyLoadingControl();
+                    imageExLazyLoadingControl.CloseButtonClick += (s, a) =>
+                    {
+                        if (lazyLoadingControlHost != null)
+                        {
+                            lazyLoadingControlHost.Child = null;
+                        }
+                    };
+
+                    if (lazyLoadingControlHost != null)
+                    {
+                        lazyLoadingControlHost.Child = imageExLazyLoadingControl;
+                    }
+                });
+            }
+
+            SampleController.Current.RegisterNewCommand("Clear image cache", async (sender, args) =>
+            {
+                container?.Children?.Clear();
                 GC.Collect(); // Force GC to free file locks
                 await ImageCache.Instance.ClearAsync();
             });
 
             await LoadDataAsync();
-
-            AddImage(false, true);
         }
 
         private async Task LoadDataAsync()
@@ -70,27 +104,24 @@ namespace Microsoft.Toolkit.Uwp.SampleApp.SamplePages
             photos = await new PhotosDataSource().GetItemsAsync(true);
         }
 
-        private void AddImage(bool broken, bool placeholder)
+        private void AddImage(bool broken, bool placeholder, bool round = false)
         {
-            var newImage = new ImageEx
+            ImageEx newImage = new ImageEx();
+            newImage.Style = resources["BaseStyle"] as Style;
+
+            if (round)
             {
-                IsCacheEnabled = true,
-                Stretch = Stretch.UniformToFill,
-                Source = broken ? photos[imageIndex].Thumbnail + "broken" : photos[imageIndex].Thumbnail,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                MaxWidth = 300,
-                Background = new SolidColorBrush(Colors.Transparent),
-                Foreground = new SolidColorBrush(Colors.White)
-            };
+                newImage.CornerRadius = new CornerRadius(999);
+            }
+
+            newImage.Source = broken ? photos[imageIndex].Thumbnail + "broken" : photos[imageIndex].Thumbnail;
 
             if (placeholder)
             {
                 newImage.PlaceholderSource = new BitmapImage(new Uri("ms-appx:///Assets/Photos/ImageExPlaceholder.jpg"));
-                newImage.PlaceholderStretch = Stretch.UniformToFill;
             }
 
-            Container.Children.Add(newImage);
+            container?.Children?.Add(newImage);
 
             // Move to next image
             imageIndex++;

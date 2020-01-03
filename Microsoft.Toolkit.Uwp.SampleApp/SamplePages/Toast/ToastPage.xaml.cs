@@ -1,14 +1,6 @@
-﻿// ******************************************************************
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THE CODE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-// INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-// IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-// DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-// TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-// THE CODE OR THE USE OR OTHER DEALINGS IN THE CODE.
-// ******************************************************************
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 using Microsoft.Toolkit.Uwp.Notifications;
 using Microsoft.Toolkit.Uwp.SampleApp.Common;
@@ -31,79 +23,29 @@ namespace Microsoft.Toolkit.Uwp.SampleApp.SamplePages
             Initialize();
         }
 
+#pragma warning disable SA1008 // Parenthesis spacing
+#pragma warning disable SA1117 // Parameters must be on same line or separate lines
+
         public static ToastContent GenerateToastContent()
         {
-            return new ToastContent()
-            {
-                Launch = "action=viewEvent&eventId=1983",
-                Scenario = ToastScenario.Reminder,
+            var builder = new ToastContentBuilder().SetToastScenario(ToastScenario.Reminder)
+                .AddToastActivationInfo("action=viewEvent&eventId=1983", ToastActivationType.Foreground)
+                .AddText("Adaptive Tiles Meeting")
+                .AddText("Conf Room 2001 / Building 135")
+                .AddText("10:00 AM - 10:30 AM")
+                .AddComboBox("snoozeTime", "15", ("1", "1 minute"),
+                                                 ("15", "15 minutes"),
+                                                 ("60", "1 hour"),
+                                                 ("240", "4 hours"),
+                                                 ("1440", "1 day"))
+                .AddButton(new ToastButtonSnooze() { SelectionBoxId = "snoozeTime" })
+                .AddButton(new ToastButtonDismiss());
 
-                Visual = new ToastVisual()
-                {
-                    BindingGeneric = new ToastBindingGeneric()
-                    {
-                        Children =
-                        {
-                            new AdaptiveText()
-                            {
-                                Text = "Adaptive Tiles Meeting"
-                            },
-
-                            new AdaptiveText()
-                            {
-                                Text = "Conf Room 2001 / Building 135"
-                            },
-
-                            new AdaptiveText()
-                            {
-                                Text = "10:00 AM - 10:30 AM"
-                            }
-                        }
-                    }
-                },
-
-                Actions = new ToastActionsCustom()
-                {
-                    Inputs =
-                    {
-                        new ToastSelectionBox("snoozeTime")
-                        {
-                            DefaultSelectionBoxItemId = "15",
-                            Items =
-                            {
-                                new ToastSelectionBoxItem("1", "1 minute"),
-                                new ToastSelectionBoxItem("15", "15 minutes"),
-                                new ToastSelectionBoxItem("60", "1 hour"),
-                                new ToastSelectionBoxItem("240", "4 hours"),
-                                new ToastSelectionBoxItem("1440", "1 day")
-                            }
-                        }
-                    },
-
-                    Buttons =
-                    {
-                        new ToastButtonSnooze()
-                        {
-                            SelectionBoxId = "snoozeTime"
-                        },
-
-                        new ToastButtonDismiss()
-                    }
-                }
-            };
+            return builder.Content;
         }
 
-        protected override void OnNavigatedTo(NavigationEventArgs e)
-        {
-            base.OnNavigatedTo(e);
-
-            var propertyDesc = e.Parameter as PropertyDescriptor;
-
-            if (propertyDesc != null)
-            {
-                DataContext = propertyDesc.Expando;
-            }
-        }
+#pragma warning restore SA1008
+#pragma warning restore SA1117
 
         private void ButtonPopToast_Click(object sender, RoutedEventArgs e)
         {
